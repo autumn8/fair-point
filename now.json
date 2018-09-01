@@ -1,0 +1,6 @@
+{
+	"env": {
+		"EMAIL_USER": "@email-user",
+		"EMAIL_PASSWORD": "@email-password"
+	}
+}

@@ -1,0 +1,4 @@
+now-secrets.json
+/uploads
+/node_modules
+.DS_Store

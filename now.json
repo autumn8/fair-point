@@ -1,6 +1,7 @@
 {
 	"env": {
 		"EMAIL_USER": "@email-user",
-		"EMAIL_PASSWORD": "@email-password"
+		"EMAIL_PASSWORD": "@email-password",
+		"ENCRYPTION_PASSWORD": "@encryption-password"
 	}
 }

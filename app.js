@@ -21,7 +21,11 @@ const ipfsOptions = {
 
 const ipfs = new IPFS(ipfsOptions);
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+
+const upload = multer({
+	storage: multer.memoryStorage(),
+	limits: { fileSize: 1000 * 1000 * 12 }
+});
 
 let db;
 
@@ -41,21 +45,27 @@ app.post(
 		{ name: 'preview', maxCount: 1 }
 	]),
 	async (req, res, next) => {
-		console.log(req.files);
-		console.log(req.body);
-		//add preview image
-		// TODO create better way of doing this
-		const primary = fs.readFileSync(req.files['primary'][0].path);
+		const primary = req.files['primary'][0].buffer;
 		const encryptedPrimary = encrypt(primary);
 		const primaryAdded = await ipfs.files.add(encryptedPrimary);
 		const primaryHash = primaryAdded[0].hash;
 
-		const preview = fs.readFileSync(req.files['preview'][0].path);
+		console.log('Primary hash:', primaryHash);
+
+		const fetchedEncryptedFile = await ipfs.files.cat(primaryHash);
+
+		fs.writeFileSync('uploads/decrypt.jpg', decrypt(fetchedEncryptedFile));
+
+		const preview = req.files['preview'][0].buffer;
+		fs.writeFileSync('uploads/thing.jpg', preview);
 		const previewAdded = await ipfs.files.add(preview);
 		const previewHash = previewAdded[0].hash;
+		console.log(previewHash);
+
 		const { price } = req.body;
 		// _id is the hash of the encrypted file. Also contains price and preview hash.
 		const product = { _id: primaryHash, previewHash, price };
+		console.log('Preview hash:', previewHash);
 		const productHash = await db.put(product);
 		console.log(productHash);
 		res.send({ success: true, primaryHash });
@@ -81,7 +91,7 @@ app.post(
 
 app.get('/purchase/:id', async (req, res) => {
 	const product = await db.get(req.params.id.toString());
-	if (product) return res.send(product);
+	if (product) return res.send(product[0]); //TODO fix array requirement
 	res.status(400).send();
 });
 
@@ -97,7 +107,8 @@ ipfs.on('ready', async () => {
 
 	const orbitdb = new OrbitDB(ipfs);
 	db = await orbitdb.docs('autumn8.fairpoint', dbOptions);
-	await db.load();
+	db.drop();
+	//await db.load();
 	const all = db.query(doc => doc._id);
 	console.log(all);
 

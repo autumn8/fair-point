@@ -5,6 +5,7 @@ const IPFS = require('ipfs');
 const fs = require('fs');
 const mail = require('./mail');
 const cors = require('cors');
+const OrbitDB = require('orbit-db');
 const { encrypt, decrypt } = require('./crypto');
 const {
 	getBytes32FromIpfsHash,
@@ -12,9 +13,17 @@ const {
 } = require('./ipfsHashConversion');
 require('now-env');
 
-const node = new IPFS();
+const ipfsOptions = {
+	EXPERIMENTAL: {
+		pubsub: true
+	}
+};
+
+const ipfs = new IPFS(ipfsOptions);
 const app = express();
 const upload = multer({ dest: 'uploads/' });
+
+let db;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
@@ -35,11 +44,22 @@ app.post(
 		console.log(req.files);
 		console.log(req.body);
 		//add preview image
-		const file = fs.readFileSync(req.files['preview'][0].path);
-		const added = await node.files.add(file);
-		const hash = added[0].hash;
-		console.log(hash);
-		res.send({ success: true, hash });
+		// TODO create better way of doing this
+		const primary = fs.readFileSync(req.files['primary'][0].path);
+		const encryptedPrimary = encrypt(primary);
+		const primaryAdded = await ipfs.files.add(encryptedPrimary);
+		const primaryHash = primaryAdded[0].hash;
+
+		const preview = fs.readFileSync(req.files['preview'][0].path);
+		const previewAdded = await ipfs.files.add(preview);
+		const previewHash = previewAdded[0].hash;
+		const { price } = req.body;
+		// _id is the hash of the encrypted file. Also contains price and preview hash.
+		const product = { _id: primaryHash, previewHash, price };
+		const productHash = await db.put(product);
+		console.log(productHash);
+		res.send({ success: true, primaryHash });
+
 		//const file = fs.readFileSync(req.file.path);
 		// const amount = req.body.title;
 		// const encryptedFile = encrypt(file);
@@ -59,8 +79,28 @@ app.post(
 	}
 );
 
-node.on('ready', async () => {
+app.get('/purchase/:id', async (req, res) => {
+	const product = await db.get(req.params.id.toString());
+	if (product) return res.send(product);
+	res.status(400).send();
+});
+
+ipfs.on('ready', async () => {
 	console.log('ipfs node ready');
+
+	const nodeID = await ipfs.id();
+	console.log(`Node ID: ${nodeID.id}`);
+
+	const dbOptions = {
+		write: ['*']
+	};
+
+	const orbitdb = new OrbitDB(ipfs);
+	db = await orbitdb.docs('autumn8.fairpoint', dbOptions);
+	await db.load();
+	const all = db.query(doc => doc._id);
+	console.log(all);
+
 	app.listen(8080, function(a) {
 		console.log('Listening to port 8080');
 	});

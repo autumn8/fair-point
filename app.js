@@ -16,6 +16,17 @@ require('now-env');
 const ipfsOptions = {
 	EXPERIMENTAL: {
 		pubsub: true
+	},
+	config: {
+		Addresses: {
+			Swarm: [
+				// Use IPFS dev signal server
+				'/dns4/star-signal.cloud.ipfs.team/wss/p2p-webrtc-star'
+				//'/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star'
+				// Use local signal server
+				// '/ip4/0.0.0.0/tcp/9090/wss/p2p-webrtc-star',
+			]
+		}
 	}
 };
 
@@ -52,23 +63,22 @@ app.post(
 
 		console.log('Primary hash:', primaryHash);
 
-		const fetchedEncryptedFile = await ipfs.files.cat(primaryHash);
+		//const fetchedEncryptedFile = await ipfs.files.cat(primaryHash);
 
-		fs.writeFileSync('uploads/decrypt.jpg', decrypt(fetchedEncryptedFile));
+		//fs.writeFileSync('uploads/decrypt.jpg', decrypt(fetchedEncryptedFile));
 
 		const preview = req.files['preview'][0].buffer;
-		fs.writeFileSync('uploads/thing.jpg', preview);
+		//fs.writeFileSync('uploads/thing.jpg', preview);
 		const previewAdded = await ipfs.files.add(preview);
 		const previewHash = previewAdded[0].hash;
 		console.log(previewHash);
 
-		const { price } = req.body;
-		// _id is the hash of the encrypted file. Also contains price and preview hash.
-		const product = { _id: primaryHash, previewHash, price };
+		const _id = getBytes32FromIpfsHash(primaryHash);
+		const product = { _id, primaryHash, previewHash };
 		console.log('Preview hash:', previewHash);
 		const productHash = await db.put(product);
-		console.log(productHash);
-		res.send({ success: true, primaryHash });
+		console.log(product);
+		res.send(product);
 
 		//const file = fs.readFileSync(req.file.path);
 		// const amount = req.body.title;
@@ -106,8 +116,8 @@ ipfs.on('ready', async () => {
 	};
 
 	const orbitdb = new OrbitDB(ipfs);
-	db = await orbitdb.docs('autumn8.fairpoint', dbOptions);
-	db.drop();
+	db = await orbitdb.docs('autumn8.fairpoint2', dbOptions);
+	//db.drop();
 	//await db.load();
 	const all = db.query(doc => doc._id);
 	console.log(all);

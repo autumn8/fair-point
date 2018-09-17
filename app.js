@@ -48,20 +48,26 @@ app.post(
 		{ name: 'preview', maxCount: 1 }
 	]),
 	async (req, res, next) => {
-		const primary = req.files['primary'][0].buffer;
-		const encryptedPrimary = encrypt(primary);
+		console.log(req.files['primary'][0]);
+		const {
+			buffer: primaryBuffer,
+			originalname: fileName,
+			mimetype: contentType
+		} = req.files['primary'][0];
+
+		const encryptedPrimary = encrypt(primaryBuffer);
 		const primaryAdded = await ipfs.files.add(encryptedPrimary);
 		const primaryHash = primaryAdded[0].hash;
 
 		console.log('Primary hash:', primaryHash);
-		const preview = req.files['preview'][0].buffer;
+		const previewBuffer = req.files['preview'][0].buffer;
 
-		const previewAdded = await ipfs.files.add(preview);
+		const previewAdded = await ipfs.files.add(previewBuffer);
 		const previewHash = previewAdded[0].hash;
 		console.log(previewHash);
 
 		const _id = getBytes32FromIpfsHash(primaryHash);
-		const product = { _id, primaryHash, previewHash };
+		const product = { _id, primaryHash, previewHash, fileName, contentType };
 		console.log('Preview hash:', previewHash);
 		const productHash = await db.put(product);
 		console.log(product);
@@ -78,34 +84,19 @@ app.get('/purchase/:id', async (req, res) => {
 
 //todo add auth layer
 app.get('/download/:id/:signature', async (req, res) => {
-	console.log(req.params);
 	const { id, signature } = req.params;
 	const accounts = await web3.eth.getAccounts();
-	console.log('accounts');
-	console.log(accounts);
 	const signedBy = await web3.eth.personal.ecRecover(id, signature);
-	console.log('signedBy');
-	console.log(signedBy);
-	// get signature. run ec recover to get account address. Check if account address is buyer of file.
 	const product = await db.get(req.params.id.toString());
-	console.log(product);
-	console.log(product[0].primaryHash);
-	const file = await ipfs.files.cat(product[0].primaryHash);
-	// TODO temp workaround
-	console.log(file);
-	//const decrypted = decrypt(file);
-	//res.end(decrypted);
-	res.download('./uploads/birdy.jpg', 'birdy.jpg');
+	const { primaryHash, fileName, contentType } = product[0];
+	const file = await ipfs.files.cat(primaryHash);
 
-	// var readStream = new stream.PassThrough();
-	// readStream.end(decrypted);
-	//
-	// res.set('Content-disposition', 'attachment; filename=testyTest,jpg');
-	// res.set('Content-Type', 'image/jpeg');
-	//
-	// readStream.pipe(res);
-
-	//res.download(decrypted, 'fileyFile');
+	const decrypted = decrypt(file);
+	const stream = new stream.PassThrough();
+	stream.end(decrypted);
+	res.set('Content-disposition', `attachment; filename=${fileName}`);
+	res.set('Content-Type', contentType);
+	stream.pipe(res);
 });
 
 ipfs.on('ready', async () => {

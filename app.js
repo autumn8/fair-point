@@ -6,6 +6,7 @@ const fs = require('fs');
 const mail = require('./mail');
 const cors = require('cors');
 const OrbitDB = require('orbit-db');
+const stream = require('stream');
 const { encrypt, decrypt } = require('./crypto');
 const {
 	getBytes32FromIpfsHash,
@@ -21,8 +22,8 @@ const ipfsOptions = {
 		Addresses: {
 			Swarm: [
 				// Use IPFS dev signal server
-				'/dns4/star-signal.cloud.ipfs.team/wss/p2p-webrtc-star'
-				//'/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star'
+				// '/dns4/star-signal.cloud.ipfs.team/wss/p2p-webrtc-star'
+				'/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star'
 				// Use local signal server
 				// '/ip4/0.0.0.0/tcp/9090/wss/p2p-webrtc-star',
 			]
@@ -62,13 +63,8 @@ app.post(
 		const primaryHash = primaryAdded[0].hash;
 
 		console.log('Primary hash:', primaryHash);
-
-		//const fetchedEncryptedFile = await ipfs.files.cat(primaryHash);
-
-		//fs.writeFileSync('uploads/decrypt.jpg', decrypt(fetchedEncryptedFile));
-
 		const preview = req.files['preview'][0].buffer;
-		//fs.writeFileSync('uploads/thing.jpg', preview);
+
 		const previewAdded = await ipfs.files.add(preview);
 		const previewHash = previewAdded[0].hash;
 		console.log(previewHash);
@@ -79,30 +75,42 @@ app.post(
 		const productHash = await db.put(product);
 		console.log(product);
 		res.send(product);
-
-		//const file = fs.readFileSync(req.file.path);
-		// const amount = req.body.title;
-		// const encryptedFile = encrypt(file);
-		// const added = await node.files.add(encryptedFile);
-		// const hash = added[0].hash;
-		// console.log('HASH', hash);
-		// mail.send('bob@cat.com', hash);
-		// const bytes32 = getBytes32FromIpfsHash(hash);
-		// console.log(bytes32);
-		// const retrievedHash = getIpfsHashFromBytes32(bytes32);
-		// console.log(retrievedHash);
-		// const fetchedEncryptedFile = await node.files.cat(added[0].hash);
-
-		//fs.writeFileSync('uploads/testicle2.jpg', decrypt(fetchedEncryptedFile));
-
-		//console.log(amount);
 	}
 );
 
 app.get('/purchase/:id', async (req, res) => {
+	//todo sync this in browser and grab db entry directly.
 	const product = await db.get(req.params.id.toString());
 	if (product) return res.send(product[0]); //TODO fix array requirement
 	res.status(400).send();
+});
+
+//todo add auth layer
+app.get('/download/:id/:signature', async (req, res) => {
+	console.log(req.params);
+	const { id, signature } = req.params;
+	//const account = await web3.eth.personal.ecRecover(id, signature);
+	//console.log(account);
+	// get signature. run ec recover to get account address. Check if account address is buyer of file.
+	const product = await db.get(req.params.id.toString());
+	console.log(product);
+	console.log(product[0].primaryHash);
+	const file = await ipfs.files.cat(product[0].primaryHash);
+	//TODO temp workaround
+	console.log(file);
+	//const decrypted = decrypt(file);
+	//res.end(decrypted);
+	res.download('./uploads/birdy.jpg', 'birdy.jpg');
+
+	// var readStream = new stream.PassThrough();
+	// readStream.end(decrypted);
+	//
+	// res.set('Content-disposition', 'attachment; filename=testyTest,jpg');
+	// res.set('Content-Type', 'image/jpeg');
+	//
+	// readStream.pipe(res);
+
+	//res.download(decrypted, 'fileyFile');
 });
 
 ipfs.on('ready', async () => {
@@ -116,9 +124,8 @@ ipfs.on('ready', async () => {
 	};
 
 	const orbitdb = new OrbitDB(ipfs);
-	db = await orbitdb.docs('autumn8.fairpoint2', dbOptions);
-	//db.drop();
-	//await db.load();
+	db = await orbitdb.docs('autumn8.fairpoint', dbOptions);
+	await db.load();
 	const all = db.query(doc => doc._id);
 	console.log(all);
 

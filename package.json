@@ -21,6 +21,8 @@
 		"multiparty": "^4.2.1",
 		"nodemailer": "^4.6.8",
 		"now-env": "^3.1.0",
-		"orbit-db": "^0.19.9"
+		"orbit-db": "^0.19.9",
+		"truffle-hdwallet-provider": "0.0.6",
+		"web3": "^1.0.0-beta.36"
 	}
 }

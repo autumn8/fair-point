@@ -7,6 +7,8 @@ const mail = require('./mail');
 const cors = require('cors');
 const OrbitDB = require('orbit-db');
 const stream = require('stream');
+const web3 = require('./web3');
+
 const { encrypt, decrypt } = require('./crypto');
 const {
 	getBytes32FromIpfsHash,
@@ -17,17 +19,6 @@ require('now-env');
 const ipfsOptions = {
 	EXPERIMENTAL: {
 		pubsub: true
-	},
-	config: {
-		Addresses: {
-			Swarm: [
-				// Use IPFS dev signal server
-				// '/dns4/star-signal.cloud.ipfs.team/wss/p2p-webrtc-star'
-				'/dns4/ws-star.discovery.libp2p.io/tcp/443/wss/p2p-websocket-star'
-				// Use local signal server
-				// '/ip4/0.0.0.0/tcp/9090/wss/p2p-webrtc-star',
-			]
-		}
 	}
 };
 
@@ -89,14 +80,18 @@ app.get('/purchase/:id', async (req, res) => {
 app.get('/download/:id/:signature', async (req, res) => {
 	console.log(req.params);
 	const { id, signature } = req.params;
-	//const account = await web3.eth.personal.ecRecover(id, signature);
-	//console.log(account);
+	const accounts = await web3.eth.getAccounts();
+	console.log('accounts');
+	console.log(accounts);
+	const signedBy = await web3.eth.personal.ecRecover(id, signature);
+	console.log('signedBy');
+	console.log(signedBy);
 	// get signature. run ec recover to get account address. Check if account address is buyer of file.
 	const product = await db.get(req.params.id.toString());
 	console.log(product);
 	console.log(product[0].primaryHash);
 	const file = await ipfs.files.cat(product[0].primaryHash);
-	//TODO temp workaround
+	// TODO temp workaround
 	console.log(file);
 	//const decrypted = decrypt(file);
 	//res.end(decrypted);

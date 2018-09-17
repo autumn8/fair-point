@@ -2,6 +2,8 @@
 	"env": {
 		"EMAIL_USER": "@email-user",
 		"EMAIL_PASSWORD": "@email-password",
-		"ENCRYPTION_PASSWORD": "@encryption-password"
+		"ENCRYPTION_PASSWORD": "@encryption-password",
+		"MNEMONIC": "@mnemonic",
+		"PROVIDER_URL": "http://localhost:7545"
 	}
 }

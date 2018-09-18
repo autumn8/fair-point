@@ -3,11 +3,13 @@ const multer = require('multer');
 const bodyParser = require('body-parser');
 const IPFS = require('ipfs');
 const fs = require('fs');
+const path = require('path');
 const mail = require('./mail');
 const cors = require('cors');
 const OrbitDB = require('orbit-db');
 const stream = require('stream');
 const web3 = require('./web3');
+const contractInstance = require('./contractInstance');
 
 const { encrypt, decrypt } = require('./crypto');
 const {
@@ -48,6 +50,7 @@ app.post(
 		{ name: 'preview', maxCount: 1 }
 	]),
 	async (req, res, next) => {
+		console.log(req.files);
 		console.log(req.files['primary'][0]);
 		const {
 			buffer: primaryBuffer,
@@ -86,17 +89,38 @@ app.get('/purchase/:id', async (req, res) => {
 app.get('/download/:id/:signature', async (req, res) => {
 	const { id, signature } = req.params;
 	const accounts = await web3.eth.getAccounts();
-	const signedBy = await web3.eth.personal.ecRecover(id, signature);
-	const product = await db.get(req.params.id.toString());
-	const { primaryHash, fileName, contentType } = product[0];
-	const file = await ipfs.files.cat(primaryHash);
+	const signedBy = await web3.eth.personal.ecRecover(
+		web3.utils.utf8ToHex(id),
+		signature
+	);
 
-	const decrypted = decrypt(file);
-	const stream = new stream.PassThrough();
-	stream.end(decrypted);
-	res.set('Content-disposition', `attachment; filename=${fileName}`);
-	res.set('Content-Type', contentType);
-	stream.pipe(res);
+	contractInstance.methods
+		.files(id)
+		.call({ from: accounts[0] })
+		.then(async file => {
+			console.log(file);
+			console.log('signedBy', signedBy);
+			console.log('buyer', res.buyer);
+			if (
+				web3.utils.hexToNumberString(signedBy) ===
+				web3.utils.hexToNumberString(file.buyer)
+			) {
+				console.log('Legit. This user has purchased the file. Send it sailor!');
+				const product = await db.get(id);
+				const { primaryHash, fileName, contentType } = product[0];
+				const file = await ipfs.files.cat(primaryHash);
+
+				const decrypted = decrypt(file);
+				const fileStream = new stream.PassThrough();
+				fileStream.end(decrypted);
+				res.set('Content-disposition', `attachment; filename=${fileName}`);
+				res.set('Content-Type', contentType);
+				fileStream.pipe(res);
+			} else {
+				res.sendFile(__dirname + '/public/downloadNonOwner.html');
+			}
+		})
+		.catch(err => console.log(err));
 });
 
 ipfs.on('ready', async () => {

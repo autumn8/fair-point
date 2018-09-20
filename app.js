@@ -100,7 +100,7 @@ app.get('/download/:id/:signature', async (req, res) => {
 		.then(async file => {
 			console.log(file);
 			console.log('signedBy', signedBy);
-			console.log('buyer', res.buyer);
+			console.log('buyer', file.buyer);
 			if (
 				web3.utils.hexToNumberString(signedBy) ===
 				web3.utils.hexToNumberString(file.buyer)
@@ -109,7 +109,7 @@ app.get('/download/:id/:signature', async (req, res) => {
 				const product = await db.get(id);
 				const { primaryHash, fileName, contentType } = product[0];
 				const file = await ipfs.files.cat(primaryHash);
-
+				// TODO stream decrypt?
 				const decrypted = decrypt(file);
 				const fileStream = new stream.PassThrough();
 				fileStream.end(decrypted);
@@ -128,12 +128,10 @@ ipfs.on('ready', async () => {
 
 	const nodeID = await ipfs.id();
 	console.log(`Node ID: ${nodeID.id}`);
-
-	const dbOptions = {
-		write: ['*']
-	};
-
 	const orbitdb = new OrbitDB(ipfs);
+	const dbOptions = {
+		write: [orbitdb.key.getPublic('hex')] //only we can write to DB
+	};
 	db = await orbitdb.docs('autumn8.fairpoint', dbOptions);
 	await db.load();
 	const all = db.query(doc => doc._id);

@@ -4,4 +4,4 @@ function __(promise) {
 		.catch(error => ({ error, data: null }));
 }
 
-export { __ };
+module.exports = { __ };

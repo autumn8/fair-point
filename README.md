@@ -1,8 +1,8 @@
 # FAIR POINT
 
-| Note: This repo is not actively maintained. Dependencies will currently break.
+*Note: This repo is not actively maintained. Dependencies will currently break.*
 
-The Fairpoint application enables image authors to encrypt & upload images to IPFS.
+The Fairpoint application enables image authors to encrypt & upload images to IPFS, with object references stored in orbitDb.
 
 The application exposes express endpoints through which an image can be uploaded, encrypted, and subsequently added to IPFS. 
 
